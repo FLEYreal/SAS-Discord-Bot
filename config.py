@@ -24,3 +24,9 @@ SEND_TRACKING_LIST_UPDATES = True
 
 # Timeout between checks (in seconds)
 CHECK_TIMEOUT = 60
+
+# Discord Token
+TOKEN = "MTEyMTc2MDI4MzQwNTMyNDM4OA.Gs_Gk4.IPwaSdGq4OseMY9r7DmQEfDVOg1KxsJ379UQco"
+
+# Channel ID
+CHANNEL_ID = "1134378351948206210"
