@@ -93,6 +93,7 @@ def steam_login():
 
 
 def launch_csgo():
+    print(csgo_client.connection_status == csgo.enums.GCConnectionStatus.NO_SESSION)
     if csgo_client.connection_status == csgo.enums.GCConnectionStatus.NO_SESSION:
         steam_login()
         csgo_client.launch()
@@ -113,33 +114,45 @@ def Replace_medal_to_color(medal):
         return "Without medal"
 
 
-def get_user_level_and_xp(steam_id, retries=3):
-    launch_csgo()
 
-    inspect_params = {"account_id": SteamID(steam_id).as_32, "request_level": 32}
-    response = None
+def launch_csgo():
+	if csgo_client.connection_status == csgo.enums.GCConnectionStatus.NO_SESSION:
+		steam_login()
+		csgo_client.launch()
 
-    for _ in range(retries):
-        csgo_client.send(
-            ECsgoGCMsg.EMsgGCCStrike15_v2_ClientRequestPlayersProfile, inspect_params)
-        response = csgo_client.wait_event(
-            ECsgoGCMsg.EMsgGCCStrike15_v2_PlayersProfile, timeout=10)  # увеличил таймаут до 10 секунд
+def get_user_level_and_xp(steam_id):
+	launch_csgo()
 
-        if response is not None:
-            break
+	inspect_params = { "account_id": SteamID(steam_id).as_32, "request_level": 32 }
+	csgo_client.send(ECsgoGCMsg.EMsgGCCStrike15_v2_ClientRequestPlayersProfile, inspect_params)
+	response = csgo_client.wait_event(ECsgoGCMsg.EMsgGCCStrike15_v2_PlayersProfile, timeout=5)
 
-    if response is None:
-        raise Exception("CS:GO sent an empty response.")
+	if response is None:
+		raise Exception("CS:GO sent an empty response.")
+	
+	profile = response[0].account_profiles[0]
 
-    profile = response[0].account_profiles[0]
-    medals = profile.medals.display_items_defidx
+	medals = profile.medals.display_items_defidx
+	#Определение какая у профиля медаль, перевод её номера в текст и вывод в консоль
+	Medals_2023 = [4873, 4874, 4875, 4876, 4877, 4878]
+	Medal_in_profile = 0
 
-    Medals_2023 = [4873, 4874, 4875, 4876, 4877, 4878]
-    Medal_in_profile = next((medal for medal in medals if medal in Medals_2023), 0)
+	for medal in medals:
+		if medal in Medals_2023:
+			Medal_in_profile = medal
 
-    print(f"{Replace_medal_to_color(Medal_in_profile)} Service medal 2023")
+	print(f"{Replace_medal_to_color(Medal_in_profile)} Service medal 2023")
+    
+    ################################################################################
 
-    return profile.player_level, max(0, profile.player_cur_xp - 327680000), medals
+	if profile.player_level == 0:
+		profile.player_level = 1
+
+	if max(0, profile.player_cur_xp - 327680000) == 0:
+		return profile.player_level, 1, medals
+
+	return profile.player_level, max(0, profile.player_cur_xp - 327680000), medals
+
 
 
 
@@ -172,68 +185,68 @@ def calculate_difference(now, previous, _max):
     return difference
 
 
-def user_xp_changed(tracked_user):
-    if tracked_user.first_check:
-        print(
-            f"First change for {tracked_user.steam_id}. Not sending message.")
-        return
+# def user_xp_changed(tracked_user):
+#     if tracked_user.first_check:
+#         print(
+#             f"First change for {tracked_user.steam_id}. Not sending message.")
+#         return
 
-    print(f"Change for {tracked_user.steam_id}. Sending message.")
+#     print(f"Change for {tracked_user.steam_id}. Sending message.")
 
-    username = f"`{tracked_user.steam_id}`"
-    avatar = ""
+#     username = f"`{tracked_user.steam_id}`"
+#     avatar = ""
 
-    try:
-        username, avatar = get_user_name_and_avatar(
-            tracked_user.steam_id, STEAM_API_KEY)
-    except Exception as e:
-        print(
-            f"Could't get username and avatar for {tracked_user.steam_id}: {e}")
-        pass
+#     try:
+#         username, avatar = get_user_name_and_avatar(
+#             tracked_user.steam_id, STEAM_API_KEY)
+#     except Exception as e:
+#         print(
+#             f"Could't get username and avatar for {tracked_user.steam_id}: {e}")
+#         pass
 
-    # EMBED
-    embed = DiscordEmbed()
-    embed.set_title(f"{username}")
-    embed.set_url(
-        f"https://steamcommunity.com/profiles/{tracked_user.steam_id}")
-    embed.set_thumbnail(avatar)
-    embed.set_timestamp(datetime.datetime.utcnow())
+#     # EMBED
+#     embed = DiscordEmbed()
+#     embed.set_title(f"{username}")
+#     embed.set_url(
+#         f"https://steamcommunity.com/profiles/{tracked_user.steam_id}")
+#     embed.set_thumbnail(avatar)
+#     embed.set_timestamp(datetime.datetime.utcnow())
 
-    if tracked_user.level != tracked_user.previous_level:
-        level_difference = calculate_difference(
-            tracked_user.level, tracked_user.previous_level, 40)
-        embed.add_field(
-            name="Level", value=f"Was: *{tracked_user.previous_level}*\nNow: *{tracked_user.level}*\nDifference: *{level_difference:+}*")
-    else:
-        embed.add_field(name="Level (unchanged)",
-                        value=f"Now: *{tracked_user.level}*")
+#     if tracked_user.level != tracked_user.previous_level:
+#         level_difference = calculate_difference(
+#             tracked_user.level, tracked_user.previous_level, 40)
+#         embed.add_field(
+#             name="Level", value=f"Was: *{tracked_user.previous_level}*\nNow: *{tracked_user.level}*\nDifference: *{level_difference:+}*")
+#     else:
+#         embed.add_field(name="Level (unchanged)",
+#                         value=f"Now: *{tracked_user.level}*")
 
-    if tracked_user.xp != tracked_user.previous_xp:
-        XP_PER_LEVEL = 5000
-        xp_difference = calculate_difference(
-            tracked_user.xp, tracked_user.previous_xp, XP_PER_LEVEL)
-        embed.add_field(
-            name="XP", value=f"Was: *{tracked_user.previous_xp}*\nNow: *{tracked_user.xp}*/5000\nDifference: *{xp_difference:+}*\nNeed *{XP_PER_LEVEL - tracked_user.xp}* XP for next level")
-    else:
-        embed.add_field(name="XP (unchanged)",
-                        value=f"Now: *{tracked_user.xp}*/5000")
+#     if tracked_user.xp != tracked_user.previous_xp:
+#         XP_PER_LEVEL = 5000
+#         xp_difference = calculate_difference(
+#             tracked_user.xp, tracked_user.previous_xp, XP_PER_LEVEL)
+#         embed.add_field(
+#             name="XP", value=f"Was: *{tracked_user.previous_xp}*\nNow: *{tracked_user.xp}*/5000\nDifference: *{xp_difference:+}*\nNeed *{XP_PER_LEVEL - tracked_user.xp}* XP for next level")
+#     else:
+#         embed.add_field(name="XP (unchanged)",
+#                         value=f"Now: *{tracked_user.xp}*/5000")
 
-    gevent.spawn(client.send, embed=embed, channel_id=CHANNEL_ID)
+#     gevent.spawn(client.send, embed=embed, channel_id=CHANNEL_ID)
 
-    #################################################################################
+#     #################################################################################
 
 
-def check_user(steam_id):
-    tracked_user = tracked_users.find_tracked_user_by_steam_id(steam_id)
+# def check_user(steam_id):
+#     tracked_user = tracked_users.find_tracked_user_by_steam_id(steam_id)
 
-    try:
-        level, xp, medals = get_user_level_and_xp(tracked_user.steam_id)
-    except Exception as e:
-        print(f"Couldn't get level and XP for {tracked_user.steam_id}: {e}")
-        return
+#     try:
+#         level, xp, medals = get_user_level_and_xp(tracked_user.steam_id)
+#     except Exception as e:
+#         print(f"Couldn't get level and XP for {tracked_user.steam_id}: {e}")
+#         return
 
-    print(f"Got level and xp for {steam_id}: {level=} {xp=} Medals: {medals=}")
-    tracked_user.update_level_and_xp(level, xp, user_xp_changed)
+#     print(f"Got level and xp for {steam_id}: {level=} {xp=} Medals: {medals=}")
+#     tracked_user.update_level_and_xp(level, xp, user_xp_changed)
 
 
 def get_tracking_list_difference():
@@ -274,25 +287,25 @@ def send_tracking_list_difference_if_needed(tracking_added, tracking_removed):
     gevent.spawn(client.send, embed=embed, channel_id=CHANNEL_ID)
 
 
-def check_users():
-    global checking_loop_running
+# def check_users():
+#     global checking_loop_running
 
-    if checking_loop_running:
-        return
+#     if checking_loop_running:
+#         return
 
-    checking_loop_running = True
+#     checking_loop_running = True
 
-    while True:
-        tracking_added, tracking_removed = get_tracking_list_difference()
-        send_tracking_list_difference_if_needed(
-            tracking_added, tracking_removed)
+#     while True:
+#         tracking_added, tracking_removed = get_tracking_list_difference()
+#         send_tracking_list_difference_if_needed(
+#             tracking_added, tracking_removed)
 
-        for steam_id in tracking_list.get_tracking_list():
-            print(f"Checking {steam_id}")
-            check_user(steam_id)
+#         for steam_id in tracking_list.get_tracking_list():
+#             print(f"Checking {steam_id}")
+#             check_user(steam_id)
 
-        print(f"Next check in {CHECK_TIMEOUT} seconds.")
-        gevent.sleep(CHECK_TIMEOUT)
+#         print(f"Next check in {CHECK_TIMEOUT} seconds.")
+#         gevent.sleep(CHECK_TIMEOUT)
 
 
 @steam_client.on("logged_on")
@@ -313,7 +326,7 @@ def csgo_client_ready():
 
     # gevent.spawn(client.send, embed=embed, channel_id=CHANNEL_ID)
 
-    check_users()
+    # check_users()
 
 
 @csgo_client.on("error")
