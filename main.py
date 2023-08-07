@@ -53,7 +53,7 @@ async def stat(interaction: disnake.ApplicationCommandInteraction, steam_id: str
 
     # Получаем имя пользователя и URL аватара
     user_name, avatar_url = get_user_name_and_avatar(
-        steam_id, STEAM_API_KEY)  # Замените "YOUR_API_KEY" на ваш ключ API
+        steam_id, STEAM_API_KEY)
 
     # Определение медали
     Medals_2023 = [4873, 4874, 4875, 4876, 4877, 4878]
@@ -73,6 +73,10 @@ async def stat(interaction: disnake.ApplicationCommandInteraction, steam_id: str
 
     await interaction.edit_original_response(embed=embed)
 
+@client.bot.slash_command(name="track", description="Starts tracking users from list!")
+async def stat(interaction: disnake.ApplicationCommandInteraction):
+    await interaction.response.defer()
+    await interaction.edit_original_response('Starting to track users from list!')
 
 def steam_login():
     print(f"Logging in to Steam as {STEAM_USERNAME}")

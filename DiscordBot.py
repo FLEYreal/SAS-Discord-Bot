@@ -70,7 +70,7 @@ class SteamStatManager:
         return lvls_dict[lvl]
 
     def __calculate_progress_percents(self, progress: int):
-        return (progress // 5000) * 100
+        return int((progress / 5000) * 100)
 
     def __render_progress_line(self, progress: int) -> str:
         filled = "▰"
@@ -79,6 +79,7 @@ class SteamStatManager:
         
         percents = self.__calculate_progress_percents(progress)
 
+
         segments_filled_count = (segments_count * percents) // 100
         segments_null_count = (segments_count - segments_filled_count)
 
@@ -86,7 +87,7 @@ class SteamStatManager:
 
     def get_info_embed(self, steam_id: str, gained_xp: int, lvl: int, progress: int, avatar_url: str, medal: Medals) -> disnake.Embed:
         """Сгенерировать Embed со статистикой в CS:GO"""
-        
+
         embed = disnake.Embed(
             description=f"**[{self.__user_name}]({self.__steamcommunity_link})** {medal}",
             colour=0xff3838
