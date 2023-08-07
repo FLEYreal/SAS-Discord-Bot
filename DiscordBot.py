@@ -102,32 +102,6 @@ class SteamStatManager:
             text="XP Tracker", icon_url="https://cdn.discordapp.com/avatars/451460095142789130/c08982abf09a9c7d4c3a82a0fac36b32.png?size=160")
         return embed
 
-# class DiscordEmbed:
-#     def __init__(self):
-#         self.embed = disnake.Embed()
-
-#     def set_title(self, title):
-#         self.embed.title = title
-
-#     def set_description(self, description):
-#         self.embed.description = description
-
-#     def set_url(self, url):
-#         self.embed.url = url
-
-#     def set_timestamp(self, timestamp):
-#         self.embed.timestamp = timestamp
-
-#     def set_thumbnail(self, url, proxy_url=None, height=None, width=None):
-#         self.embed.set_thumbnail(url=url)
-
-#     def add_field(self, name, value, inline=True):
-#         self.embed.add_field(name=name, value=value, inline=inline)
-
-#     def get_embed(self):
-#         return self.embed
-
-
 class DiscordBot:
     def __init__(self, token):
         self.token = token
