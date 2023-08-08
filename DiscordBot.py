@@ -3,6 +3,7 @@ from config import *
 from enum import Enum
 
 import disnake
+import datetime
 from disnake.ext import commands
 
 # ssm = SteamStatManager(user_name, steamcommunity_link). <- Реализуй объект так
@@ -91,6 +92,8 @@ class SteamStatManager:
         if gained_xp > 0:
             shown_xp = "+" + str(gained_xp)
 
+        xp_left = "Need " + str(5000 - progress) + " XP for next level"
+
         embed = disnake.Embed(
             description=f"**[{self.__user_name}]({self.__steamcommunity_link})** {medal}",
             colour=0xff3838
@@ -101,9 +104,10 @@ class SteamStatManager:
                         value=shown_xp, inline=True)
         embed.add_field(name=f"{self.__get_lvl_emoji(lvl)} Level {lvl} |  Progress: {progress}/5000",
                         value=self.__render_progress_line(progress), inline=False)
+        embed.add_field(name=xp_left, value='', inline=False)
         embed.set_thumbnail(url=avatar_url)
         embed.set_footer(
-            text="XP Tracker", icon_url="https://cdn.discordapp.com/avatars/451460095142789130/c08982abf09a9c7d4c3a82a0fac36b32.png?size=160")
+            text=f"XP Tracker | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", icon_url="https://cdn.discordapp.com/avatars/451460095142789130/c08982abf09a9c7d4c3a82a0fac36b32.png?size=160")
         return embed
 
 class DiscordBot:
