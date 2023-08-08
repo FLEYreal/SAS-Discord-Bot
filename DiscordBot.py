@@ -111,9 +111,5 @@ class DiscordBot:
         self.token = token
         self.bot = commands.InteractionBot(intents=disnake.Intents.all())
 
-    async def send(self, channel_id, content=None, embed=None):
-        channel = await self.bot.fetch_channel(channel_id)
-        await channel.send(content=content, embed=embed)
-
     def run(self):
         self.bot.run(self.token)
