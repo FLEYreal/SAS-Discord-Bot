@@ -87,6 +87,9 @@ class SteamStatManager:
 
     def get_info_embed(self, steam_id: str, gained_xp: int, lvl: int, progress: int, avatar_url: str, medal: Medals) -> disnake.Embed:
         """Сгенерировать Embed со статистикой в CS:GO"""
+        shown_xp = str(gained_xp)
+        if gained_xp > 0:
+            shown_xp = "+" + str(gained_xp)
 
         embed = disnake.Embed(
             description=f"**[{self.__user_name}]({self.__steamcommunity_link})** {medal}",
@@ -95,7 +98,7 @@ class SteamStatManager:
         embed.add_field(name="<:steam:1129754230492758118> SteamID",
                         value=steam_id, inline=True)
         embed.add_field(name="<:xp:1129758227375079454> Gained XP",
-                        value=gained_xp, inline=True)
+                        value=shown_xp, inline=True)
         embed.add_field(name=f"{self.__get_lvl_emoji(lvl)} Level {lvl} |  Progress: {progress}/5000",
                         value=self.__render_progress_line(progress), inline=False)
         embed.set_thumbnail(url=avatar_url)

@@ -1,3 +1,6 @@
+import gevent
+import asyncio
+
 # Импорт конфигурационного файла, содержащего различные настройки
 from DiscordBot import DiscordBot, SteamStatManager, Medals
 from config import *
@@ -19,10 +22,13 @@ from disnake import Option, OptionType, ApplicationCommandInteraction
 
 # Импорт других необходимых библиотек
 import csgo
+import aiohttp
 import os
 import datetime
 import requests
-import gevent
+import json
+
+# Патчим стандартную библиотеку для совместимости с gevent
 
 import tracemalloc
 tracemalloc.start()
@@ -43,7 +49,6 @@ checking_loop_running = False
 async def on_ready():
     print(f'We have logged in as {client.bot.user}')
 
-
 @client.bot.slash_command(name="stat", description="Shows statistics of the user")
 async def stat(interaction: disnake.ApplicationCommandInteraction, steam_id: str):
     await interaction.response.defer()
@@ -59,8 +64,8 @@ async def stat(interaction: disnake.ApplicationCommandInteraction, steam_id: str
     Medals_2023 = [4873, 4874, 4875, 4876, 4877, 4878]
     Medal_in_profile = next(
         (medal for medal in medals if medal in Medals_2023), None)
-    # Предполагая, что функция Replace_medal_to_color переводит номер медали в соответствующий Enum
-    medal_enum = Replace_medal_to_color(Medal_in_profile)
+    # Предполагая, что функция replace_medal_to_color переводит номер медали в соответствующий Enum
+    medal_enum = replace_medal_to_color(Medal_in_profile)
 
     steamcommunity_link = f"https://steamcommunity.com/profiles/{steam_id}"
 
@@ -74,9 +79,93 @@ async def stat(interaction: disnake.ApplicationCommandInteraction, steam_id: str
     await interaction.edit_original_response(embed=embed)
 
 @client.bot.slash_command(name="track", description="Starts tracking users from list!")
-async def stat(interaction: disnake.ApplicationCommandInteraction):
+async def track(interaction: disnake.ApplicationCommandInteraction):
     await interaction.response.defer()
-    await interaction.edit_original_response('Starting to track users from list!')
+
+    global checking_loop_running
+
+    if checking_loop_running:
+        await interaction.edit_original_response('Already tracking user(s)!')
+    else:
+        checking_loop_running = True
+
+        # Чтение steam_id и xp из файла tracking_list.json
+        with open('tracking_list.json', 'r') as file:
+            tracking_data = json.load(file)
+
+        # Создание и запуск асинхронных циклов для каждого steam_id
+        tasks = [track_user(steam_data, interaction) for steam_data in tracking_data]
+        await asyncio.gather(*tasks)
+
+        # Сохранение обновленных данных в файл tracking_list.json
+        with open('tracking_list.json', 'w') as file:
+            json.dump(tracking_data, file, indent=4)
+
+        checking_loop_running = False
+
+async def track_user(steam_data, interaction):
+    global checking_loop_running
+
+    while checking_loop_running:
+
+        steam_id = steam_data['id']
+        prev_xp = steam_data['xp']
+
+        # Получаем актуальные данные из файла
+        with open('tracking_list.json', 'r') as file:
+            tracking_data = json.load(file)
+
+        # Находим текущие данные по steam_id
+        for data in tracking_data:
+            if data['id'] == steam_id:
+                prev_xp = data['xp']
+                break
+
+        # Получаем уровень и опыт пользователя с помощью функции get_user_level_and_xp
+        player_level, player_cur_xp, medals = get_user_level_and_xp(steam_id)
+
+        # Получаем имя пользователя и URL аватара
+        user_name, avatar_url = get_user_name_and_avatar(steam_id, STEAM_API_KEY)
+
+        # Определение медали
+        Medals_2023 = [4873, 4874, 4875, 4876, 4877, 4878]
+        Medal_in_profile = next((medal for medal in medals if medal in Medals_2023), None)
+
+        # Предполагая, что функция replace_medal_to_color переводит номер медали в соответствующий Enum
+        medal_enum = replace_medal_to_color(Medal_in_profile)
+
+        steamcommunity_link = f"https://steamcommunity.com/profiles/{steam_id}"
+
+        # Создаем экземпляр SteamStatManager
+        ssm = SteamStatManager(user_name, steamcommunity_link)
+
+        # Получаем встраиваемое сообщение с помощью метода get_info_embed
+        print('Current: ', player_cur_xp)
+        print('Pervious: ', prev_xp)
+        print('Result: ', player_cur_xp - prev_xp)
+        gained_xp = player_cur_xp - prev_xp
+        embed = ssm.get_info_embed(steam_id, gained_xp, player_level, player_cur_xp, avatar_url, medal_enum)
+
+        # Проверяем, изменилось ли xp и отправляем новое сообщение с встраиваемым содержимым
+        if player_cur_xp != prev_xp:
+
+            # Обновляем значение prev_xp на новое полученное значение xp и сохраняем в json
+            steam_data['xp'] = player_cur_xp
+
+            # Обновляем значение prev_xp в данных пользователя в tracking_list.json
+            for data in tracking_data:
+                if data['id'] == steam_id:
+                    data['xp'] = player_cur_xp
+                    break
+
+            # Сохраняем обновленные данные в файл tracking_list.json
+            with open('tracking_list.json', 'w') as file:
+                json.dump(tracking_data, file, indent=4)
+
+            await interaction.followup.send(embed=embed)
+
+        await asyncio.sleep(30)
+
 
 def steam_login():
     print(f"Logging in to Steam as {STEAM_USERNAME}")
@@ -95,22 +184,14 @@ def steam_login():
     else:
         steam_client.cli_login(username=STEAM_USERNAME, password=STEAM_PASSWORD)
 
-
-def launch_csgo():
-    print(csgo_client.connection_status == csgo.enums.GCConnectionStatus.NO_SESSION)
-    if csgo_client.connection_status == csgo.enums.GCConnectionStatus.NO_SESSION:
-        steam_login()
-        csgo_client.launch()
-
-
-def Replace_medal_to_color(medal):
+def replace_medal_to_color(medal):
     Medals_2023_color = {
-        4873: "Grey",
-        4874: "Green",
-        4875: "Blue",
-        4876: "Purple",
-        4877: "Pink",
-        4878: "Red",
+        4873: "<:2023_1:1128338078835159100>",
+        4874: "<:2023_2:1128338080877785098>",
+        4875: "<:2023_3:1128338084833009715>",
+        4876: "<:2023_4:1128338089471922268>",
+        4877: "<:2023_5:1128338093066424360>",
+        4878: "<:2023_6:1128338143268044830>",
     }
     if medal in Medals_2023_color:
         return Medals_2023_color[medal]
@@ -145,7 +226,7 @@ def get_user_level_and_xp(steam_id):
 		if medal in Medals_2023:
 			Medal_in_profile = medal
 
-	print(f"{Replace_medal_to_color(Medal_in_profile)} Service medal 2023")
+	print(f"{replace_medal_to_color(Medal_in_profile)} Service medal 2023")
     
     ################################################################################
 
@@ -156,9 +237,6 @@ def get_user_level_and_xp(steam_id):
 		return profile.player_level, 1, medals
 
 	return profile.player_level, max(0, profile.player_cur_xp - 327680000), medals
-
-
-
 
 def get_user_name_and_avatar(steam_id, api_key):
     if DISABLE_STEAM_API:
@@ -181,13 +259,11 @@ def get_user_name_and_avatar(steam_id, api_key):
 
     raise Exception(f"Could't find {steam_id} in response.")
 
-
 def calculate_difference(now, previous, _max):
     difference = now - previous
     if difference < 0:
         difference += _max
     return difference
-
 
 # def user_xp_changed(tracked_user):
 #     if tracked_user.first_check:
@@ -292,12 +368,6 @@ def send_tracking_list_difference_if_needed(tracking_added, tracking_removed):
 
 
 # def check_users():
-#     global checking_loop_running
-
-#     if checking_loop_running:
-#         return
-
-#     checking_loop_running = True
 
 #     while True:
 #         tracking_added, tracking_removed = get_tracking_list_difference()
