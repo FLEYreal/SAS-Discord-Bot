@@ -15,6 +15,18 @@ checking_loop_running = False
 async def track(interaction: disnake.ApplicationCommandInteraction):
     await interaction.response.defer()
 
+    try:
+        # Отправляем сообщение и получаем объект сообщения
+        sent_message = await interaction.followup.send("Loading...")
+
+        # Ваш остальной код для трекинга
+
+        # Удаление сообщения
+        await sent_message.delete()
+
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {e}")
+
     global checking_loop_running
 
     if checking_loop_running:
@@ -102,6 +114,6 @@ async def track_user(steam_data, interaction):
             with open('tracking_list.json', 'w') as file:
                 json.dump(tracking_data, file, indent=4)
 
-            await interaction.followup.send(embed=embed)
+            await interaction.channel.send(embed=embed)
 
         await asyncio.sleep(30)
