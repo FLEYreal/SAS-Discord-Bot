@@ -29,24 +29,27 @@ async def track(interaction: disnake.ApplicationCommandInteraction):
 
     global checking_loop_running
 
-    if checking_loop_running:
-        await interaction.edit_original_response('Already tracking user(s)!')
-    else:
-        checking_loop_running = True
+    try:
+        if checking_loop_running:
+            await interaction.edit_original_response('Already tracking user(s)!')
+        else:
+            checking_loop_running = True
 
-        # Чтение steam_id и xp из файла tracking_list.json
-        with open('tracking_list.json', 'r') as file:
-            tracking_data = json.load(file)
+            # Чтение steam_id и xp из файла tracking_list.json
+            with open('tracking_list.json', 'r') as file:
+                tracking_data = json.load(file)
 
-        # Создание и запуск асинхронных циклов для каждого steam_id
-        tasks = [track_user(steam_data, interaction) for steam_data in tracking_data]
-        await asyncio.gather(*tasks)
+            # Создание и запуск асинхронных циклов для каждого steam_id
+            tasks = [track_user(steam_data, interaction) for steam_data in tracking_data]
+            await asyncio.gather(*tasks)
 
-        # Сохранение обновленных данных в файл tracking_list.json
-        with open('tracking_list.json', 'w') as file:
-            json.dump(tracking_data, file, indent=4)
+            # Сохранение обновленных данных в файл tracking_list.json
+            with open('tracking_list.json', 'w') as file:
+                json.dump(tracking_data, file, indent=4)
 
-        checking_loop_running = False
+            checking_loop_running = False
+    except disnake.NotFound:
+        pass
 
 async def track_user(steam_data, interaction):
     global checking_loop_running
@@ -89,10 +92,11 @@ async def track_user(steam_data, interaction):
         # Если уровень повышается, то прошлый xp становится 0, чтобы 
         # не было конфликтов в gained_xp и не было отрицательных чисел
         if player_level != prev_level:
-            prev_xp = 0
+            gained_xp = (5000 - prev_xp) + player_cur_xp
+        else:
+            # Получаем полученный опыт
+            gained_xp = player_cur_xp - prev_xp
 
-        # Получаем полученный опыт
-        gained_xp = player_cur_xp - prev_xp
 
         # Получаем встраиваемое сообщение с помощью метода get_info_embed
         embed = ssm.get_info_embed(steam_id, gained_xp, player_level, player_cur_xp, avatar_url, medal_enum)

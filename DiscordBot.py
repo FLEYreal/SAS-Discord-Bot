@@ -6,6 +6,8 @@ import disnake
 import datetime
 from disnake.ext import commands
 
+from datetime import datetime
+
 # ssm = SteamStatManager(user_name, steamcommunity_link). <- Реализуй объект так
 
 class Medals(Enum):
@@ -93,13 +95,6 @@ class SteamStatManager:
 
         xp_left = "Need " + str(5000 - progress) + " XP for next level"
 
-        current_datetime = datetime.datetime.now()
-        footer_date = current_datetime.strftime('%Y-%m-%d')
-        footer_time = current_datetime.strftime('%I:%M %p')
-
-        if current_datetime.date() == datetime.datetime.today().date():
-            footer_date = "Today"
-
         embed = disnake.Embed(
             description=f"**[{self.__user_name}]({self.__steamcommunity_link})** {medal}",
             colour=0xff3838
@@ -112,8 +107,8 @@ class SteamStatManager:
                         value=self.__render_progress_line(progress), inline=False)
         embed.add_field(name=xp_left, value='', inline=False)
         embed.set_thumbnail(url=avatar_url)
-        embed.set_footer(
-            text=f"XP Tracker | {footer_date} {footer_time}", icon_url="https://cdn.discordapp.com/avatars/451460095142789130/c08982abf09a9c7d4c3a82a0fac36b32.png?size=160")
+        embed.timestamp = datetime.utcnow()
+        embed.set_footer(text=f"XP Tracker")
         return embed
 
 class DiscordBot:
